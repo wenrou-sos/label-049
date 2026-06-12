@@ -31,9 +31,9 @@ def filter_data(
 ) -> pd.DataFrame:
     filtered = df.copy()
     
-    if routes:
+    if routes is not None:
         filtered = filtered[filtered['线路名称'].isin(routes)]
-    if districts:
+    if districts is not None:
         filtered = filtered[filtered['所属区域'].isin(districts)]
     if hours:
         filtered = filtered[(filtered['时段'] >= hours[0]) & (filtered['时段'] <= hours[1])]
@@ -46,7 +46,7 @@ def filter_data(
             filtered = filtered[filtered['时段类型'] == '晚高峰']
         elif peak_type == '平峰':
             filtered = filtered[filtered['时段类型'] == '平峰']
-    if dates:
+    if dates is not None:
         filtered = filtered[filtered['日期'].isin(dates)]
     
     return filtered

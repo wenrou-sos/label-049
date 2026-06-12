@@ -417,35 +417,44 @@ def main():
             )
         
         display_analysis = route_analysis.copy()
-        if route_search:
-            display_analysis = display_analysis[display_analysis['线路名称'].str.contains(route_search, case=False)]
+        if route_search and route_search.strip():
+            try:
+                display_analysis = display_analysis[
+                    display_analysis['线路名称'].str.contains(route_search.strip(), case=False, regex=False)
+                ]
+            except Exception:
+                st.warning("⚠️ 搜索输入无效，请输入有效的线路名称")
+                display_analysis = pd.DataFrame(columns=display_analysis.columns)
+        
         if load_filter:
             display_analysis = display_analysis[display_analysis['满载率等级'].isin(load_filter)]
         
-        rank_fig = create_load_rate_ranking(display_analysis, top_n=len(display_analysis))
-        st.plotly_chart(rank_fig, width='stretch')
-        
-        st.markdown("#### 详细线路数据")
-        st.dataframe(
-            display_analysis.style.format({
-                '总客流': '{:,}',
-                '平均客流': '{:.0f}',
-                '最大客流': '{:,}',
-                '平均满载率': '{:.1%}',
-                '最大满载率': '{:.1%}',
-                '运营班次': '{:,}'
-            }),
-            width='stretch',
-            hide_index=True,
-            column_config={
-                '满载率等级': st.column_config.Column(
-                    '满载率等级',
-                    width='small'
-                )
-            }
-        )
-        
-        if not display_analysis.empty:
+        if display_analysis.empty:
+            st.info("ℹ️ 未找到符合条件的线路，请调整搜索或筛选条件")
+        else:
+            rank_fig = create_load_rate_ranking(display_analysis, top_n=len(display_analysis))
+            st.plotly_chart(rank_fig, width='stretch')
+            
+            st.markdown("#### 详细线路数据")
+            st.dataframe(
+                display_analysis.style.format({
+                    '总客流': '{:,}',
+                    '平均客流': '{:.0f}',
+                    '最大客流': '{:,}',
+                    '平均满载率': '{:.1%}',
+                    '最大满载率': '{:.1%}',
+                    '运营班次': '{:,}'
+                }),
+                width='stretch',
+                hide_index=True,
+                column_config={
+                    '满载率等级': st.column_config.Column(
+                        '满载率等级',
+                        width='small'
+                    )
+                }
+            )
+            
             selected_route_detail = st.selectbox(
                 "📋 选择线路查看详细数据",
                 options=display_analysis['线路名称'].tolist(),
