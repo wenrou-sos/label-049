@@ -17,6 +17,7 @@ from src.visualizations import (
     create_multi_route_comparison, create_district_pie,
     create_load_rate_distribution
 )
+from src.pdf_report import generate_pdf_report
 
 st.set_page_config(
     page_title="公交客流数据可视化分析系统",
@@ -521,15 +522,26 @@ def main():
         ])
         st.table(standard_df)
     
+    hourly_data_export = get_hourly_trend(filtered_df)
+    peak_comparison_export = get_peak_comparison(filtered_df)
+
+    @st.cache_data(ttl=600)
+    def get_pdf_report(df, route_analysis_df, suggestions_list, peak_comp,
+                       heatmap_d, hourly_d, sel_routes):
+        return generate_pdf_report(
+            df, route_analysis_df, suggestions_list, peak_comp,
+            heatmap_d, hourly_d, sel_routes
+        )
+    
     st.markdown('---')
     st.markdown('<div class="section-header"><h2>📥 数据导出</h2></div>', unsafe_allow_html=True)
     
-    col_exp1, col_exp2, col_exp3 = st.columns(3)
+    col_exp1, col_exp2, col_exp3, col_exp4 = st.columns(4)
     
     with col_exp1:
         st.markdown("#### 筛选后数据")
         st.download_button(
-            label="📊 导出Excel数据",
+            label="📊 导出CSV数据",
             data=filtered_df.to_csv(index=False, encoding='utf-8-sig').encode('utf-8-sig'),
             file_name=f"公交客流数据_{datetime.now().strftime('%Y%m%d')}.csv",
             mime='text/csv',
@@ -537,10 +549,10 @@ def main():
         )
     
     with col_exp2:
-        st.markdown("#### 线路分析报告")
+        st.markdown("#### Markdown报告")
         report = generate_report(filtered_df, route_analysis, suggestions, peak_comparison)
         st.download_button(
-            label="📄 导出分析报告",
+            label="� 导出分析报告",
             data=report.encode('utf-8'),
             file_name=f"公交客流分析报告_{datetime.now().strftime('%Y%m%d')}.md",
             mime='text/markdown',
@@ -548,9 +560,27 @@ def main():
         )
     
     with col_exp3:
+        st.markdown("#### PDF分析报告")
+        try:
+            pdf_bytes = get_pdf_report(
+                filtered_df, route_analysis, suggestions, peak_comparison_export,
+                heatmap_data, hourly_data_export,
+                selected_routes if len(selected_routes) <= 10 else None
+            )
+            st.download_button(
+                label="📕 导出PDF报告",
+                data=pdf_bytes,
+                file_name=f"公交客流分析报告_{datetime.now().strftime('%Y%m%d')}.pdf",
+                mime='application/pdf',
+                width='stretch'
+            )
+        except Exception as e:
+            st.error(f"PDF生成失败: {str(e)}")
+    
+    with col_exp4:
         st.markdown("#### 热力图数据")
         st.download_button(
-            label="🔥 导出热力图数据",
+            label="🔥 导出热力图CSV",
             data=heatmap_data.to_csv(encoding='utf-8-sig').encode('utf-8-sig'),
             file_name=f"热力图数据_{datetime.now().strftime('%Y%m%d')}.csv",
             mime='text/csv',
