@@ -16,7 +16,7 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
 from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle,
-    PageBreak, KeepTogether, Frame, PageTemplate, BaseDocTemplate
+    PageBreak, NextPageTemplate, KeepTogether, Frame, PageTemplate, BaseDocTemplate
 )
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -119,7 +119,41 @@ class PDFReportTemplate(BaseDocTemplate):
         ])
 
     def _cover_page(self, canvas, doc):
-        pass
+        canvas.saveState()
+
+        canvas.setFillColor(PRIMARY_COLOR)
+        canvas.rect(0, 0, A4[0], A4[1], fill=True, stroke=False)
+
+        canvas.setFillColor(HexColor('#1e3a5f'))
+        canvas.rect(0, A4[1] * 0.62, A4[0], A4[1] * 0.08, fill=True, stroke=False)
+
+        canvas.setFillColor(ACCENT_BLUE)
+        canvas.rect(2 * cm, A4[1] * 0.56, 4 * cm, 0.15 * cm, fill=True, stroke=False)
+
+        canvas.setStrokeColor(HexColor('#3d5a80'))
+        canvas.setLineWidth(0.8)
+        for i in range(6):
+            y = A4[1] * 0.1 + i * A4[1] * 0.06
+            canvas.setLineWidth(0.3 + i * 0.1)
+            canvas.setStrokeColor(HexColor(f'#2{4 + i}{4 + i}66'))
+            canvas.line(2 * cm + i * 0.5 * cm, y, A4[0] - 2 * cm - i * 0.5 * cm, y)
+
+        canvas.setFillColor(white)
+        canvas.setFont(FONT_BOLD, 10)
+        canvas.drawString(2 * cm, A4[1] - 2 * cm, 'BUS PASSENGER FLOW ANALYSIS')
+
+        canvas.setFillColor(HexColor('#88aacc'))
+        canvas.setFont(FONT_NAME, 9)
+        canvas.drawRightString(A4[0] - 2 * cm, A4[1] - 2 * cm,
+                               datetime.now().strftime('%Y.%m.%d'))
+
+        canvas.setFillColor(HexColor('#6b8db3'))
+        canvas.setFont(FONT_NAME, 8)
+        canvas.drawString(2 * cm, 1.5 * cm, '公交客流数据可视化分析系统')
+        canvas.drawRightString(A4[0] - 2 * cm, 1.5 * cm,
+                               '© 2024 All Rights Reserved')
+
+        canvas.restoreState()
 
     def _content_page(self, canvas, doc):
         self.page_count += 1
@@ -303,16 +337,29 @@ def _build_styles():
     styles = {}
 
     styles['cover_title'] = ParagraphStyle(
-        'CoverTitle', fontName=FONT_BOLD, fontSize=28, leading=36,
-        textColor=white, alignment=TA_CENTER, spaceAfter=10
+        'CoverTitle', fontName=FONT_BOLD, fontSize=32, leading=42,
+        textColor=white, alignment=TA_CENTER, spaceAfter=6
+    )
+    styles['cover_english_title'] = ParagraphStyle(
+        'CoverEnglishTitle', fontName=FONT_NAME, fontSize=12, leading=16,
+        textColor=HexColor('#88aacc'), alignment=TA_CENTER, spaceAfter=8,
+        letterSpacing=2
     )
     styles['cover_subtitle'] = ParagraphStyle(
-        'CoverSubtitle', fontName=FONT_NAME, fontSize=14, leading=20,
+        'CoverSubtitle', fontName=FONT_NAME, fontSize=13, leading=20,
         textColor=HexColor('#b0c4de'), alignment=TA_CENTER, spaceAfter=8
     )
     styles['cover_date'] = ParagraphStyle(
         'CoverDate', fontName=FONT_NAME, fontSize=12, leading=16,
         textColor=HexColor('#8899aa'), alignment=TA_CENTER
+    )
+    styles['cover_metric_number'] = ParagraphStyle(
+        'CoverMetricNumber', fontName=FONT_BOLD, fontSize=20, leading=26,
+        textColor=ACCENT_BLUE, alignment=TA_CENTER
+    )
+    styles['cover_metric_label'] = ParagraphStyle(
+        'CoverMetricLabel', fontName=FONT_NAME, fontSize=9, leading=12,
+        textColor=HexColor('#88aacc'), alignment=TA_CENTER
     )
     styles['section_title'] = ParagraphStyle(
         'SectionTitle', fontName=FONT_BOLD, fontSize=16, leading=22,
@@ -365,41 +412,69 @@ def _build_styles():
 def _build_cover_page(styles, df, unique_routes):
     elements = []
 
-    d = Drawing(A4[0], A4[1])
-    d.add(Rect(0, 0, A4[0], A4[1], fillColor=PRIMARY_COLOR, strokeColor=None))
-    d.add(Rect(0, A4[1] * 0.35, A4[0], 3, fillColor=ACCENT_BLUE, strokeColor=None))
-    d.add(Rect(0, A4[1] * 0.35 - 6, A4[0], 2, fillColor=HexColor('#1a2f5a'), strokeColor=None))
-    d.add(Line(A4[0] * 0.15, A4[1] * 0.72, A4[0] * 0.85, A4[1] * 0.72,
-               strokeColor=ACCENT_BLUE, strokeWidth=1))
+    elements.append(Spacer(1, A4[1] * 0.2))
 
-    elements.append(d)
-    elements.append(Spacer(1, -A4[1] + A4[1] * 0.78))
+    elements.append(Paragraph('公交客流数据', styles['cover_title']))
+    elements.append(Paragraph('可视化分析报告', styles['cover_title']))
 
-    cover_data = [
-        [Paragraph('公交客流数据', styles['cover_title'])],
-        [Paragraph('可视化分析报告', styles['cover_title'])],
-        [Spacer(1, 20)],
-        [Paragraph('基于 Python + Streamlit + Plotly 的智能公交调度决策支持平台',
-                    styles['cover_subtitle'])],
-        [Spacer(1, 40)],
-        [Paragraph(f'报告生成时间：{datetime.now().strftime("%Y年%m月%d日")}',
-                    styles['cover_date'])],
-        [Spacer(1, 8)],
-        [Paragraph(f'分析线路：{unique_routes} 条  |  总客流：{df["客流人数"].sum():,} 人次',
-                    styles['cover_date'])],
+    elements.append(Spacer(1, 16))
+    elements.append(Paragraph('Bus Passenger Flow Visualization Analysis Report',
+                              styles['cover_english_title']))
+
+    elements.append(Spacer(1, 40))
+
+    elements.append(Paragraph(
+        '基于 Python + Streamlit + Plotly 的智能公交调度决策支持平台',
+        styles['cover_subtitle']
+    ))
+
+    elements.append(Spacer(1, 60))
+
+    total_passengers = df['客流人数'].sum()
+    avg_load_rate = df['满载率'].mean()
+    total_days = df['日期'].nunique()
+    total_regions = df['所属区域'].nunique()
+
+    metric_data = [
+        [
+            Paragraph(f'{unique_routes}', styles['cover_metric_number']),
+            Paragraph(f'{total_passengers:,}', styles['cover_metric_number']),
+        ],
+        [
+            Paragraph('运营线路', styles['cover_metric_label']),
+            Paragraph('总客流人次', styles['cover_metric_label']),
+        ],
+        [
+            Paragraph(f'{avg_load_rate * 100:.1f}%', styles['cover_metric_number']),
+            Paragraph(f'{total_days}', styles['cover_metric_number']),
+        ],
+        [
+            Paragraph('平均满载率', styles['cover_metric_label']),
+            Paragraph('统计天数', styles['cover_metric_label']),
+        ],
     ]
 
-    cover_table = Table(cover_data, colWidths=[A4[0] - 4 * cm])
-    cover_table.setStyle(TableStyle([
+    metric_table = Table(metric_data, colWidths=[6 * cm, 6 * cm])
+    metric_table.setStyle(TableStyle([
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 0),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-        ('TOPPADDING', (0, 0), (-1, -1), 0),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ('LEFTPADDING', (0, 0), (-1, -1), 10),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('BACKGROUND', (0, 0), (-1, -1), HexColor('#1e3a5f')),
+        ('BOX', (0, 0), (-1, -1), 0.5, HexColor('#3d5a80')),
+        ('LINEBEFORE', (1, 0), (1, -1), 0.5, HexColor('#3d5a80')),
+        ('LINEAFTER', (0, 0), (0, -1), 0, white),
     ]))
 
+    cover_table = Table([[metric_table]], colWidths=[A4[0] - 4 * cm])
+    cover_table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+    ]))
     elements.append(cover_table)
+
+    elements.append(NextPageTemplate('Content'))
     elements.append(PageBreak())
 
     return elements
@@ -756,8 +831,6 @@ def generate_pdf_report(df, route_analysis, suggestions, peak_comparison,
     unique_routes = df['线路名称'].nunique()
 
     elements.extend(_build_cover_page(styles, df, unique_routes))
-
-    doc.handle_nextPageTemplate('Content')
 
     elements.extend(_build_overview_section(styles, df, avg_load_rate, peak_load_rate, unique_routes))
 
